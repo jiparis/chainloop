@@ -18,7 +18,14 @@ package renderer
 import (
 	"bytes"
 	"context"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -31,6 +38,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/secure-systems-lab/go-securesystemslib/dsse"
 	"github.com/sigstore/cosign/v2/pkg/signature"
+	sigstoresigner "github.com/sigstore/sigstore/pkg/signature"
 	sigdsee "github.com/sigstore/sigstore/pkg/signature/dsse"
 	"golang.org/x/term"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -93,14 +101,10 @@ func (ab *AttestationRenderer) Render() (*dsse.Envelope, error) {
 		return nil, err
 	}
 
-	ab.logger.Debug().Str("path", ab.signingKeyPath).Msg("loading key")
-
-	signer, err := signature.SignerFromKeyRef(context.Background(), ab.signingKeyPath, getPass)
+	wrappedSigner, err := ab.getSigner()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting signer: %w", err)
 	}
-
-	wrappedSigner := sigdsee.WrapSigner(signer, "application/vnd.in-toto+json")
 
 	signedAtt, err := wrappedSigner.SignMessage(bytes.NewReader(rawStatement))
 	if err != nil {
@@ -172,3 +176,91 @@ func getPassFromTerm(confirm bool) ([]byte, error) {
 	}
 	return pw1, nil
 }
+
+func (ab *AttestationRenderer) getSigner() (sigstoresigner.Signer, error) {
+	var (
+		signer sigstoresigner.Signer
+		err    error
+	)
+
+	if ab.signingKeyPath != "" {
+		ab.logger.Debug().Str("path", ab.signingKeyPath).Msg("loading key")
+		signer, err = signature.SignerFromKeyRef(context.Background(), ab.signingKeyPath, getPass)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// key is not provided, let's create one
+		ab.logger.Info().Msg("key not provided, running in key-less mode")
+		signer, err = ab.keyLessSigner()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return sigdsee.WrapSigner(signer, "application/vnd.in-toto+json"), nil
+}
+
+type certificateRequest struct {
+	PrivateKey            *ecdsa.PrivateKey
+	CertificateRequestPEM []byte
+}
+
+func (ab *AttestationRenderer) keyLessSigner() (sigstoresigner.Signer, error) {
+	request, err := ab.createCertificateRequest()
+	if err != nil {
+		return nil, err
+	}
+	sv, err := sigstoresigner.LoadECDSASignerVerifier(request.PrivateKey, crypto.SHA256)
+	if err != nil {
+		return nil, err
+	}
+
+	return sv, nil
+}
+
+func (ab *AttestationRenderer) createCertificateRequest() (*certificateRequest, error) {
+	ab.logger.Debug().Msg("generating new certificate request")
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("generating cert: %w", err)
+	}
+	csrTmpl := &x509.CertificateRequest{Subject: pkix.Name{CommonName: "ephemeral certificate"}}
+	derCSR, err := x509.CreateCertificateRequest(rand.Reader, csrTmpl, priv)
+	if err != nil {
+		return nil, fmt.Errorf("generating certificate request: %w", err)
+	}
+
+	// Encode CSR to PEM
+	pemCSR := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: derCSR,
+	})
+
+	return &certificateRequest{
+		CertificateRequestPEM: pemCSR,
+		PrivateKey:            priv,
+	}, nil
+}
+
+//func certFromChainloop(s sigstoresigner.Signer) (*sigstoresigner.Signer, error) {
+//	publicKey, err := s.PublicKey()
+//	if err != nil {
+//		return nil, err
+//	}
+//	pubBytes, err := cryptoutils.MarshalPublicKeyToPEM(publicKey)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	cr := pb.WorkflowServiceDeleteRequest{
+//		PublicKey: api.Key{
+//			Content: pubBytes,
+//		},
+//	}
+//
+//	// call chainloop
+//	client := pb.NewWorkflowServiceClient(action.cfg.CPConnection)
+//	client.CreateSigningCert(cr)
+//}

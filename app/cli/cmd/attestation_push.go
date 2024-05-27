@@ -49,13 +49,13 @@ func newAttestationPushCmd() *cobra.Command {
 		Annotations: map[string]string{
 			useWorkflowRobotAccount: "true",
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if pkPath == "" {
-				return errors.New("a path to the private key is required")
-			}
-
-			return nil
-		},
+		//PreRunE: func(cmd *cobra.Command, args []string) error {
+		//	if pkPath == "" {
+		//		return errors.New("a path to the private key is required")
+		//	}
+		//
+		//	return nil
+		//},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			info, err := executableInfo()
 			if err != nil {
