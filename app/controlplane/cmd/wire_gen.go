@@ -21,6 +21,10 @@ import (
 	"github.com/sigstore/fulcio/pkg/ca"
 )
 
+import (
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/aws"
+)
+
 // Injectors from wire.go:
 
 func wireApp(bootstrap *conf.Bootstrap, readerWriter credentials.ReaderWriter, logger log.Logger, availablePlugins sdk.AvailablePlugins, certificateAuthority ca.CertificateAuthority) (*app, func(), error) {

@@ -16,15 +16,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
+	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
-	"github.com/getsentry/sentry-go"
-	"github.com/sigstore/fulcio/pkg/ca/fileca"
-	flag "github.com/spf13/pflag"
-
 	"github.com/chainloop-dev/chainloop/app/controlplane/internal/biz"
 	"github.com/chainloop-dev/chainloop/app/controlplane/internal/conf"
 	"github.com/chainloop-dev/chainloop/app/controlplane/internal/server"
@@ -33,6 +33,12 @@ import (
 	"github.com/chainloop-dev/chainloop/internal/credentials"
 	"github.com/chainloop-dev/chainloop/internal/credentials/manager"
 	"github.com/chainloop-dev/chainloop/internal/servicelogger"
+	"github.com/getsentry/sentry-go"
+	"github.com/sigstore/fulcio/pkg/ca"
+	"github.com/sigstore/fulcio/pkg/ca/fileca"
+	"github.com/sigstore/fulcio/pkg/ca/kmsca"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	flag "github.com/spf13/pflag"
 
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/config"
@@ -41,6 +47,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	"github.com/go-kratos/kratos/v2/transport/http"
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/aws"
 )
 
 var (
@@ -128,7 +135,10 @@ func main() {
 	// Kill plugins processes on exit
 	defer availablePlugins.Cleanup()
 
-	ca, err := fileca.NewFileCA("", "", "", false)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ca, err := newSigningCA(ctx, &bc, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -137,9 +147,6 @@ func main() {
 		panic(err)
 	}
 	defer cleanup()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Run an expiration job every minute that expires unfinished runs older than 1 hour
 	// TODO: Make it configurable from the application config
@@ -222,4 +229,33 @@ func initSentry(c *conf.Bootstrap, logger log.Logger) (cleanupFunc func(), err e
 
 func newProtoValidator() (*protovalidate.Validator, error) {
 	return protovalidate.New()
+}
+
+func newSigningCA(ctx context.Context, c *conf.Bootstrap, logger log.Logger) (ca.CertificateAuthority, error) {
+	// KMS
+	if c.GetCertificateAuthority().GetKmsCa() != nil {
+		kmsCa := c.GetCertificateAuthority().GetKmsCa()
+		var data []byte
+		data, err := os.ReadFile(filepath.Clean(kmsCa.CertificateChainPath))
+		if err != nil {
+			return nil, fmt.Errorf("error reading the kms certificate chain from '%s': %w", kmsCa.CertificateChainPath, err)
+		}
+
+		var certs []*x509.Certificate
+		certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("error loading the PEM certificates from the kms certificate chain from '%s': %w", kmsCa.CertificateChainPath, err)
+		}
+
+		return kmsca.NewKMSCA(ctx, kmsCa.GetKeyResourceId(), certs)
+	}
+
+	// File
+	if c.GetCertificateAuthority().GetFileCa() != nil {
+		fileCa := c.GetCertificateAuthority().GetFileCa()
+		return fileca.NewFileCA(fileCa.GetKeyPath(), fileCa.GetKeyPath(), fileCa.GetKeyPass(), false)
+	}
+
+	// No CA configured, keyless will be deactivated.
+	return nil, nil
 }
