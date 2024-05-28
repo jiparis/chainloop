@@ -32,6 +32,7 @@ import (
 	"os"
 	"syscall"
 
+	pb "github.com/chainloop-dev/chainloop/app/controlplane/api/controlplane/v1"
 	v1 "github.com/chainloop-dev/chainloop/internal/attestation/crafter/api/attestation/v1"
 	"github.com/chainloop-dev/chainloop/internal/attestation/renderer/chainloop"
 	intoto "github.com/in-toto/attestation/go/v1"
@@ -45,10 +46,11 @@ import (
 )
 
 type AttestationRenderer struct {
-	logger         zerolog.Logger
-	signingKeyPath string
-	att            *v1.Attestation
-	renderer       r
+	logger               zerolog.Logger
+	signingKeyPath       string
+	att                  *v1.Attestation
+	renderer             r
+	signingServiceClient pb.SigningServiceClient
 }
 
 type r interface {
@@ -60,6 +62,12 @@ type Opt func(*AttestationRenderer)
 func WithLogger(logger zerolog.Logger) Opt {
 	return func(ar *AttestationRenderer) {
 		ar.logger = logger
+	}
+}
+
+func WithCPSigningClient(sc pb.SigningServiceClient) Opt {
+	return func(ar *AttestationRenderer) {
+		ar.signingServiceClient = sc
 	}
 }
 
@@ -84,7 +92,7 @@ func NewAttestationRenderer(state *v1.CraftingState, keyPath, builderVersion, bu
 
 // Attestation (dsee envelope) -> { message: { Statement(in-toto): [subject, predicate] }, signature: "sig" }.
 // NOTE: It currently only supports cosign key based signing.
-func (ab *AttestationRenderer) Render() (*dsse.Envelope, error) {
+func (ab *AttestationRenderer) Render(ctx context.Context) (*dsse.Envelope, error) {
 	ab.logger.Debug().Msg("generating in-toto statement")
 
 	statement, err := ab.renderer.Statement()
@@ -101,7 +109,7 @@ func (ab *AttestationRenderer) Render() (*dsse.Envelope, error) {
 		return nil, err
 	}
 
-	wrappedSigner, err := ab.getSigner()
+	wrappedSigner, err := ab.getSigner(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting signer: %w", err)
 	}
@@ -177,7 +185,7 @@ func getPassFromTerm(confirm bool) ([]byte, error) {
 	return pw1, nil
 }
 
-func (ab *AttestationRenderer) getSigner() (sigstoresigner.Signer, error) {
+func (ab *AttestationRenderer) getSigner(ctx context.Context) (sigstoresigner.Signer, error) {
 	var (
 		signer sigstoresigner.Signer
 		err    error
@@ -192,7 +200,7 @@ func (ab *AttestationRenderer) getSigner() (sigstoresigner.Signer, error) {
 	} else {
 		// key is not provided, let's create one
 		ab.logger.Info().Msg("key not provided, running in key-less mode")
-		signer, err = ab.keyLessSigner()
+		signer, err = ab.keyLessSigner(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -203,12 +211,22 @@ func (ab *AttestationRenderer) getSigner() (sigstoresigner.Signer, error) {
 
 type certificateRequest struct {
 	PrivateKey *ecdsa.PrivateKey
-	// CertificateRequestPEM containes the signed public key and the CSR metadata
+	// CertificateRequestPEM contains the signed public key and the CSR metadata
 	CertificateRequestPEM []byte
 }
 
-func (ab *AttestationRenderer) keyLessSigner() (sigstoresigner.Signer, error) {
+type Signer struct {
+	sigstoresigner.SignerVerifier
+	Cert  string
+	Chain []string
+}
+
+func (ab *AttestationRenderer) keyLessSigner(ctx context.Context) (sigstoresigner.Signer, error) {
 	request, err := ab.createCertificateRequest()
+	if err != nil {
+		return nil, err
+	}
+	certs, err := ab.certFromChainloop(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +235,16 @@ func (ab *AttestationRenderer) keyLessSigner() (sigstoresigner.Signer, error) {
 		return nil, err
 	}
 
-	return sv, nil
+	var chain []string
+	if len(certs) > 1 {
+		chain = append(chain, certs[1:]...)
+	}
+
+	return &Signer{
+		Cert:           certs[0],
+		Chain:          chain,
+		SignerVerifier: sv,
+	}, nil
 }
 
 func (ab *AttestationRenderer) createCertificateRequest() (*certificateRequest, error) {
@@ -245,23 +272,17 @@ func (ab *AttestationRenderer) createCertificateRequest() (*certificateRequest, 
 	}, nil
 }
 
-//func certFromChainloop(s sigstoresigner.Signer) (*sigstoresigner.Signer, error) {
-//	publicKey, err := s.PublicKey()
-//	if err != nil {
-//		return nil, err
-//	}
-//	pubBytes, err := cryptoutils.MarshalPublicKeyToPEM(publicKey)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	cr := pb.WorkflowServiceDeleteRequest{
-//		PublicKey: api.Key{
-//			Content: pubBytes,
-//		},
-//	}
-//
-//	// call chainloop
-//	client := pb.NewWorkflowServiceClient(action.cfg.CPConnection)
-//	client.CreateSigningCert(cr)
-//}
+func (ab *AttestationRenderer) certFromChainloop(ctx context.Context, req *certificateRequest) ([]string, error) {
+	cr := pb.SigningCertRequest{
+		CertificateSigningRequest: req.CertificateRequestPEM,
+	}
+
+	// call chainloop
+	resp, err := ab.signingServiceClient.SigningCert(ctx, &cr)
+	if err != nil {
+		return nil, err
+	}
+
+	// get full chain
+	return resp.GetChain().GetCertificates(), nil
+}
