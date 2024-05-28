@@ -22,6 +22,7 @@ import (
 
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/getsentry/sentry-go"
+	"github.com/sigstore/fulcio/pkg/ca/fileca"
 	flag "github.com/spf13/pflag"
 
 	"github.com/chainloop-dev/chainloop/app/controlplane/internal/biz"
@@ -127,7 +128,11 @@ func main() {
 	// Kill plugins processes on exit
 	defer availablePlugins.Cleanup()
 
-	app, cleanup, err := wireApp(&bc, credsWriter, logger, availablePlugins)
+	ca, err := fileca.NewFileCA("", "", "", false)
+	if err != nil {
+		panic(err)
+	}
+	app, cleanup, err := wireApp(&bc, credsWriter, logger, availablePlugins, ca)
 	if err != nil {
 		panic(err)
 	}

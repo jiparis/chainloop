@@ -202,7 +202,8 @@ func (ab *AttestationRenderer) getSigner() (sigstoresigner.Signer, error) {
 }
 
 type certificateRequest struct {
-	PrivateKey            *ecdsa.PrivateKey
+	PrivateKey *ecdsa.PrivateKey
+	// CertificateRequestPEM containes the signed public key and the CSR metadata
 	CertificateRequestPEM []byte
 }
 

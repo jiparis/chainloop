@@ -78,6 +78,7 @@ type Opts struct {
 	APITokenSvc         *service.APITokenService
 	AttestationStateSvc *service.AttestationStateService
 	UserSvc             *service.UserService
+	SigningSvc          *service.SigningService
 	// Utils
 	Logger       log.Logger
 	ServerConfig *conf.Server
@@ -144,6 +145,7 @@ func NewGRPCServer(opts *Opts) (*grpc.Server, error) {
 	v1.RegisterAPITokenServiceServer(srv, opts.APITokenSvc)
 	v1.RegisterAttestationStateServiceServer(srv, opts.AttestationStateSvc)
 	v1.RegisterUserServiceServer(srv, opts.UserSvc)
+	v1.RegisterSigningServiceServer(srv, opts.SigningSvc)
 
 	// Register Prometheus metrics
 	grpc_prometheus.Register(srv.Server)
