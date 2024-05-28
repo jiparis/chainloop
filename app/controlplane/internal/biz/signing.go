@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"errors"
 
 	"github.com/sigstore/fulcio/pkg/ca"
@@ -32,13 +33,13 @@ type SigningCertCreator interface {
 }
 
 type SigningUseCase struct {
-	ca ca.CertificateAuthority
+	CA ca.CertificateAuthority
 }
 
 var _ SigningCertCreator = (*SigningUseCase)(nil)
 
 func NewChainloopSigningUseCase(ca ca.CertificateAuthority) *SigningUseCase {
-	return &SigningUseCase{ca: ca}
+	return &SigningUseCase{CA: ca}
 }
 
 func (s *SigningUseCase) CreateSigningCert(ctx context.Context, orgId string, csrRaw []byte) ([]string, error) {
@@ -66,7 +67,7 @@ func (s *SigningUseCase) CreateSigningCert(ctx context.Context, orgId string, cs
 	}
 
 	// Create certificate from CA provider (no Signed Certificate Timestamps for now)
-	csc, err := s.ca.CreateCertificate(ctx, NewChainloopPrincipal(orgId), publicKey)
+	csc, err := s.CA.CreateCertificate(ctx, NewChainloopPrincipal(orgId), publicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -104,5 +105,7 @@ func (p *ChainloopPrincipal) Embed(_ context.Context, cert *x509.Certificate) er
 	// no op.
 	// TODO: Chainloop might have their own private enterprise number with the Internet Assigned Numbers Authority
 	// 		 to embed its own identity information in the resulting certificate
+	cert.Subject = pkix.Name{Organization: []string{p.orgId}}
+
 	return nil
 }
