@@ -253,7 +253,7 @@ func newSigningCA(ctx context.Context, c *conf.Bootstrap, logger log.Logger) (ca
 	// File
 	if c.GetCertificateAuthority().GetFileCa() != nil {
 		fileCa := c.GetCertificateAuthority().GetFileCa()
-		return fileca.NewFileCA(fileCa.GetKeyPath(), fileCa.GetKeyPath(), fileCa.GetKeyPass(), false)
+		return fileca.NewFileCA(fileCa.GetCertPath(), fileCa.GetKeyPath(), fileCa.GetKeyPass(), false)
 	}
 
 	// No CA configured, keyless will be deactivated.
