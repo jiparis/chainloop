@@ -32,7 +32,7 @@ import (
 	"github.com/chainloop-dev/chainloop/app/controlplane/plugins/sdk/v1"
 	"github.com/chainloop-dev/chainloop/internal/credentials"
 	"github.com/chainloop-dev/chainloop/internal/credentials/manager"
-	"github.com/chainloop-dev/chainloop/internal/servicelogger"
+	"github.com/chainloop-dev/chainloop/pkg/servicelogger"
 	"github.com/getsentry/sentry-go"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
