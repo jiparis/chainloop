@@ -247,15 +247,18 @@ func newSigningCA(ctx context.Context, c *conf.Bootstrap, logger log.Logger) (ca
 			return nil, fmt.Errorf("error loading the PEM certificates from the kms certificate chain from '%s': %w", kmsCa.CertificateChainPath, err)
 		}
 
+		_ = logger.Log(log.LevelInfo, "msg", "Keyless: KMS CA configured")
 		return kmsca.NewKMSCA(ctx, kmsCa.GetKeyResourceId(), certs)
 	}
 
 	// File
 	if c.GetCertificateAuthority().GetFileCa() != nil {
 		fileCa := c.GetCertificateAuthority().GetFileCa()
+		_ = logger.Log(log.LevelInfo, "msg", "Keyless: File CA configured")
 		return fileca.NewFileCA(fileCa.GetCertPath(), fileCa.GetKeyPath(), fileCa.GetKeyPass(), false)
 	}
 
 	// No CA configured, keyless will be deactivated.
+	_ = logger.Log(log.LevelInfo, "msg", "Keyless NOT configured")
 	return nil, nil
 }
