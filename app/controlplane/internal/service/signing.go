@@ -5,6 +5,7 @@ import (
 
 	v1 "github.com/chainloop-dev/chainloop/app/controlplane/api/controlplane/v1"
 	"github.com/chainloop-dev/chainloop/app/controlplane/internal/biz"
+	"github.com/chainloop-dev/chainloop/app/controlplane/internal/usercontext"
 	"github.com/go-kratos/kratos/v2/errors"
 )
 
@@ -28,15 +29,15 @@ func (s *SigningService) SigningCert(ctx context.Context, req *v1.SigningCertReq
 		return nil, errors.BadRequest("missing csr", "a certificate request is expected")
 	}
 
-	org, err := requireCurrentOrg(ctx)
-	if err != nil {
-		return nil, errors.Unauthorized("missing org", "an organization is required")
+	ra := usercontext.CurrentRobotAccount(ctx)
+	if ra == nil {
+		return nil, errors.Unauthorized("missing org", "authentication data is required")
 	}
 
-	_, err = s.signing.CreateSigningCert(ctx, org.ID, req.GetCertificateSigningRequest())
+	certs, err := s.signing.CreateSigningCert(ctx, ra.OrgID, req.GetCertificateSigningRequest())
 	if err != nil {
 		return nil, handleUseCaseErr(err, s.log)
 	}
 
-	return nil, nil
+	return &v1.SigningCertResponse{Chain: &v1.CertificateChain{Certificates: certs}}, nil
 }
