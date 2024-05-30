@@ -14,11 +14,13 @@ server:
     timeout: 10s
 
 certificate_authority:
-#  ca:
   file_ca:
     cert_path: "../../devel/devkeys/ca.pub"
     key_path: "../../devel/devkeys/ca.pem"
     key_pass: chainloop
+#  kms_ca:
+#    key_resource_id:
+#    certificate_chain_path:
 
 # Directory where the plugins are located
 # NOTE: plugins have the form of chainloop-plugin-<name>

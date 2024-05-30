@@ -16,12 +16,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"crypto/x509"
-	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/bufbuild/protovalidate-go"
@@ -36,8 +32,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/sigstore/fulcio/pkg/ca"
 	"github.com/sigstore/fulcio/pkg/ca/fileca"
-	"github.com/sigstore/fulcio/pkg/ca/kmsca"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	flag "github.com/spf13/pflag"
 
 	"github.com/go-kratos/kratos/v2"
@@ -231,26 +225,7 @@ func newProtoValidator() (*protovalidate.Validator, error) {
 	return protovalidate.New()
 }
 
-func newSigningCA(ctx context.Context, c *conf.Bootstrap, logger log.Logger) (ca.CertificateAuthority, error) {
-	// KMS
-	if c.GetCertificateAuthority().GetKmsCa() != nil {
-		kmsCa := c.GetCertificateAuthority().GetKmsCa()
-		var data []byte
-		data, err := os.ReadFile(filepath.Clean(kmsCa.CertificateChainPath))
-		if err != nil {
-			return nil, fmt.Errorf("error reading the kms certificate chain from '%s': %w", kmsCa.CertificateChainPath, err)
-		}
-
-		var certs []*x509.Certificate
-		certs, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(data))
-		if err != nil {
-			return nil, fmt.Errorf("error loading the PEM certificates from the kms certificate chain from '%s': %w", kmsCa.CertificateChainPath, err)
-		}
-
-		_ = logger.Log(log.LevelInfo, "msg", "Keyless: KMS CA configured")
-		return kmsca.NewKMSCA(ctx, kmsCa.GetKeyResourceId(), certs)
-	}
-
+func newSigningCA(_ context.Context, c *conf.Bootstrap, logger log.Logger) (ca.CertificateAuthority, error) {
 	// File
 	if c.GetCertificateAuthority().GetFileCa() != nil {
 		fileCa := c.GetCertificateAuthority().GetFileCa()
