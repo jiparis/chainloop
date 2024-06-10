@@ -33,7 +33,7 @@ const formatStatement = "statement"
 const formatAttestation = "attestation"
 
 func newWorkflowWorkflowRunDescribeCmd() *cobra.Command {
-	var runID, attestationDigest, publicKey string
+	var runID, attestationDigest, publicKey, chainPath string
 	var verifyAttestation bool
 	// TODO: Replace by retrieving key from rekor
 	const signingKeyEnvVarName = "CHAINLOOP_SIGNING_PUBLIC_KEY"
@@ -42,8 +42,8 @@ func newWorkflowWorkflowRunDescribeCmd() *cobra.Command {
 		Use:   "describe",
 		Short: "View a Workflow Run",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if verifyAttestation && publicKey == "" {
-				return errors.New("a public key needs to be provided for verification")
+			if verifyAttestation && publicKey == "" && chainPath == "" {
+				return errors.New("a public key or certificate needs to be provided for verification")
 			}
 
 			if runID == "" && attestationDigest == "" {
@@ -53,7 +53,12 @@ func newWorkflowWorkflowRunDescribeCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			res, err := action.NewWorkflowRunDescribe(actionOpts).Run(context.Background(), runID, attestationDigest, verifyAttestation, publicKey)
+			res, err := action.NewWorkflowRunDescribe(actionOpts).Run(context.Background(), runID, attestationDigest,
+				&action.WorkflowRunDescribeOpts{
+					KeyRef:    publicKey,
+					ChainPath: chainPath,
+					Verify:    verifyAttestation,
+				})
 			if err != nil {
 				return err
 			}
@@ -72,6 +77,8 @@ func newWorkflowWorkflowRunDescribeCmd() *cobra.Command {
 		publicKey = os.Getenv(signingKeyEnvVarName)
 	}
 
+	cmd.Flags().StringVar(&chainPath, "chain", "", "certificate chain used for verifying, including intermediates and root certificate, if any, in PEM format")
+	cmd.MarkFlagsMutuallyExclusive("chain", "key")
 	// Override default output flag
 	cmd.InheritedFlags().StringVarP(&flagOutputFormat, "output", "o", "table", "output format, valid options are table, json, attestation or statement")
 

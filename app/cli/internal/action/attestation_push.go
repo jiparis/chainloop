@@ -19,6 +19,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	pb "github.com/chainloop-dev/chainloop/app/controlplane/api/controlplane/v1"
@@ -32,7 +34,7 @@ import (
 
 type AttestationPushOpts struct {
 	*ActionsOpts
-	KeyPath, CLIVersion, CLIDigest string
+	KeyPath, CLIVersion, CLIDigest, ChainPath string
 }
 
 type AttestationResult struct {
@@ -43,8 +45,8 @@ type AttestationResult struct {
 
 type AttestationPush struct {
 	*ActionsOpts
-	c                              *crafter.Crafter
-	keyPath, cliVersion, cliDigest string
+	c                                         *crafter.Crafter
+	keyPath, cliVersion, cliDigest, chainPath string
 }
 
 func NewAttestationPush(cfg *AttestationPushOpts) (*AttestationPush, error) {
@@ -59,6 +61,7 @@ func NewAttestationPush(cfg *AttestationPushOpts) (*AttestationPush, error) {
 		keyPath:     cfg.KeyPath,
 		cliVersion:  cfg.CLIVersion,
 		cliDigest:   cfg.CLIDigest,
+		chainPath:   cfg.ChainPath,
 	}, nil
 }
 
@@ -131,7 +134,16 @@ func (action *AttestationPush) Run(ctx context.Context, attestationID string, ru
 	// Indicate that we are done with the attestation
 	action.c.CraftingState.Attestation.FinishedAt = timestamppb.New(time.Now())
 
-	wrappedSigner := signer.GetSigner(action.keyPath, action.Logger, pb.NewSigningServiceClient(action.CPConnection))
+	// Create a writer to save the certificate chain when in keyless mode
+	var chainWriter io.Writer
+	if action.chainPath != "" {
+		action.Logger.Info().Msg(fmt.Sprintf("certificate chain will be written to %s", action.chainPath))
+		chainWriter, err = os.OpenFile(action.chainPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if err != nil {
+			return nil, fmt.Errorf("opening file for writting: %w", err)
+		}
+	}
+	wrappedSigner := signer.GetSigner(action.keyPath, chainWriter, action.Logger, pb.NewSigningServiceClient(action.CPConnection))
 	renderer, err := renderer.NewAttestationRenderer(action.c.CraftingState, action.cliVersion, action.cliDigest, wrappedSigner,
 		renderer.WithLogger(action.Logger))
 	if err != nil {

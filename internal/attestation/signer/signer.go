@@ -16,6 +16,8 @@
 package signer
 
 import (
+	"io"
+
 	pb "github.com/chainloop-dev/chainloop/app/controlplane/api/controlplane/v1"
 	"github.com/chainloop-dev/chainloop/internal/attestation/signer/chainloop"
 	"github.com/chainloop-dev/chainloop/internal/attestation/signer/cosign"
@@ -25,12 +27,12 @@ import (
 )
 
 // GetSigner creates a new Signer based on input parameters
-func GetSigner(keyPath string, logger zerolog.Logger, client pb.SigningServiceClient) sigstoresigner.Signer {
+func GetSigner(keyPath string, chainWriter io.Writer, logger zerolog.Logger, client pb.SigningServiceClient) sigstoresigner.Signer {
 	var signer sigstoresigner.Signer
 	if keyPath != "" {
 		signer = cosign.NewSigner(keyPath, logger)
 	} else {
-		signer = chainloop.NewSigner(client, logger)
+		signer = chainloop.NewSigner(client, chainWriter, logger)
 	}
 
 	return sigdsee.WrapSigner(signer, "application/vnd.in-toto+json")

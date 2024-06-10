@@ -26,7 +26,7 @@ import (
 )
 
 func newAttestationPushCmd() *cobra.Command {
-	var pkPath string
+	var pkPath, chainPath string
 	var annotationsFlag []string
 	cmd := &cobra.Command{
 		Use:   "push",
@@ -57,7 +57,7 @@ func newAttestationPushCmd() *cobra.Command {
 				return fmt.Errorf("getting executable information: %w", err)
 			}
 			a, err := action.NewAttestationPush(&action.AttestationPushOpts{
-				ActionsOpts: actionOpts, KeyPath: pkPath, CLIVersion: info.Version, CLIDigest: info.Digest,
+				ActionsOpts: actionOpts, KeyPath: pkPath, ChainPath: chainPath, CLIVersion: info.Version, CLIDigest: info.Digest,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to load action: %w", err)
@@ -99,6 +99,7 @@ func newAttestationPushCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&pkPath, "key", "k", "", "reference (path or env variable name) to the cosign or KMS key that will be used to sign the attestation")
 	cmd.Flags().StringSliceVar(&annotationsFlag, "annotation", nil, "additional annotation in the format of key=value")
+	cmd.Flags().StringVar(&chainPath, "chain", "", "path to write the generated certificate chain to, when running in key-less mode")
 	flagAttestationID(cmd)
 
 	return cmd

@@ -16,22 +16,30 @@
 package action
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"sort"
 
 	pb "github.com/chainloop-dev/chainloop/app/controlplane/api/controlplane/v1"
 	"github.com/chainloop-dev/chainloop/internal/attestation/renderer/chainloop"
-	sigs "github.com/sigstore/cosign/v2/pkg/signature"
-
+	"github.com/chainloop-dev/chainloop/internal/attestation/verifier"
 	intoto "github.com/in-toto/attestation/go/v1"
 	"github.com/secure-systems-lab/go-securesystemslib/dsse"
-	sigdsee "github.com/sigstore/sigstore/pkg/signature/dsse"
+	"github.com/sigstore/cosign/v2/pkg/blob"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 type WorkflowRunDescribe struct {
 	cfg *ActionsOpts
+}
+
+type WorkflowRunDescribeOpts struct {
+	ChainPath string
+	KeyRef    string
+	Verify    bool
 }
 
 type WorkflowRunItemFull struct {
@@ -81,7 +89,7 @@ func NewWorkflowRunDescribe(cfg *ActionsOpts) *WorkflowRunDescribe {
 	return &WorkflowRunDescribe{cfg}
 }
 
-func (action *WorkflowRunDescribe) Run(ctx context.Context, runID string, digest string, verify bool, publicKey string) (*WorkflowRunItemFull, error) {
+func (action *WorkflowRunDescribe) Run(ctx context.Context, runID string, digest string, opts *WorkflowRunDescribeOpts) (*WorkflowRunItemFull, error) {
 	client := pb.NewWorkflowRunServiceClient(action.cfg.CPConnection)
 
 	req := &pb.WorkflowRunServiceViewRequest{}
@@ -119,8 +127,13 @@ func (action *WorkflowRunDescribe) Run(ctx context.Context, runID string, digest
 		return nil, err
 	}
 
-	if verify {
-		if err := verifyEnvelope(ctx, envelope, publicKey); err != nil {
+	if opts.Verify {
+		v, err := buildVerifier(opts)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't build a verifier: %v", err)
+		}
+		err = v.Verify(ctx, envelope)
+		if err != nil {
 			action.cfg.Logger.Debug().Err(err).Msg("verifying the envelope")
 			return nil, errors.New("invalid signature, did you provide the right key?")
 		}
@@ -196,19 +209,51 @@ func materialPBToAction(in *pb.AttestationItem_Material) *Material {
 	return m
 }
 
-func verifyEnvelope(ctx context.Context, e *dsse.Envelope, publicKey string) error {
-	// Currently we only support basic cosign public key check
-	// TODO: Add more verification methods
-	verifier, err := sigs.PublicKeyFromKeyRef(ctx, publicKey)
-	if err != nil {
-		return err
+func buildVerifier(opts *WorkflowRunDescribeOpts) (*verifier.Verifier, error) {
+	vo := &verifier.VerifierOptions{
+		KeyRef: opts.KeyRef,
 	}
 
-	dsseVerifier, err := dsse.NewEnvelopeVerifier(&sigdsee.VerifierAdapter{SignatureVerifier: verifier})
-	if err != nil {
-		return err
+	// x509 PEM-encoded certificate list. Assuming first in the chain is the signing certificate, and last one is the root CA
+	if opts.ChainPath != "" {
+		cert, chain, root, err := loadCertificates(opts.ChainPath)
+		if err != nil {
+			return nil, fmt.Errorf("loading certificates: %w", err)
+		}
+		vo.Intermediates = chain
+		vo.Cert = cert
+		vo.RootCA = root
 	}
 
-	_, err = dsseVerifier.Verify(ctx, e)
-	return err
+	return verifier.NewVerifier(vo), nil
+}
+
+func loadCertificates(chainPath string) (*x509.Certificate, *x509.CertPool, *x509.Certificate, error) {
+	// Use cosign API to load cert PEM from supported URI schemes
+	content, err := blob.LoadFileOrURL(chainPath)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("reading chain file: %w", err)
+	}
+	certs, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(content))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading certificates: %w", err)
+	}
+	if len(certs) == 0 {
+		return nil, nil, nil, fmt.Errorf("no certificates found in the chain")
+	}
+
+	var root *x509.Certificate
+	var intermediates *x509.CertPool
+	leaf := certs[0]
+	if len(certs) > 1 {
+		root = certs[len(certs)-1]
+	}
+	if len(certs) > 2 {
+		intermediates = x509.NewCertPool()
+		for _, c := range certs[1 : len(certs)-1] {
+			intermediates.AddCert(c)
+		}
+	}
+
+	return leaf, intermediates, root, nil
 }
