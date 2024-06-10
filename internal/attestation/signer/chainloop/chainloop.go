@@ -38,10 +38,9 @@ type Signer struct {
 	sigstoresigner.Signer
 
 	// PEM encoded public certificate chain
-	chain []string
+	Chain []string
 
 	// where to write the certificate chain to
-	chainWriter          io.Writer
 	signingServiceClient pb.SigningServiceClient
 	logger               zerolog.Logger
 	mu                   sync.Mutex
@@ -49,11 +48,10 @@ type Signer struct {
 
 var _ sigstoresigner.Signer = (*Signer)(nil)
 
-func NewSigner(sc pb.SigningServiceClient, chainWriter io.Writer, logger zerolog.Logger) *Signer {
+func NewSigner(sc pb.SigningServiceClient, logger zerolog.Logger) *Signer {
 	return &Signer{
 		signingServiceClient: sc,
 		logger:               logger,
-		chainWriter:          chainWriter,
 	}
 }
 
@@ -61,15 +59,6 @@ func (cs *Signer) SignMessage(message io.Reader, opts ...sigstoresigner.SignOpti
 	err := cs.ensureInitiated(context.Background())
 	if err != nil {
 		return nil, err
-	}
-
-	// save chain
-	if cs.chainWriter != nil {
-		for _, c := range cs.chain {
-			if _, err = fmt.Fprintln(cs.chainWriter, c); err != nil {
-				return nil, fmt.Errorf("failed to write chain: %w", err)
-			}
-		}
 	}
 
 	return cs.Signer.SignMessage(message, opts...)
@@ -108,7 +97,7 @@ func (cs *Signer) keyLessSigner(ctx context.Context) (sigstoresigner.Signer, err
 	if err != nil {
 		return nil, fmt.Errorf("creating certificate request: %w", err)
 	}
-	cs.chain, err = cs.certFromChainloop(ctx, request)
+	cs.Chain, err = cs.certFromChainloop(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("getting a certificate from chainloop: %w", err)
 	}
