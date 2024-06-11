@@ -136,7 +136,7 @@ func (ab *AttestationRenderer) Render() (*dsse.Envelope, error) {
 }
 
 func (ab *AttestationRenderer) envelopeToBundle(dsseEnvelope dsse.Envelope) (*protobundle.Bundle, error) {
-	// dsse Envelope is already base64 encoded, we need to decode to prevent it from being encoded twice
+	// DSSE Envelope is already base64 encoded, we need to decode to prevent it from being encoded twice
 	payload, err := base64.StdEncoding.DecodeString(dsseEnvelope.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("decoding: %w", err)
