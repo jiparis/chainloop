@@ -174,7 +174,8 @@ func (ab *AttestationRenderer) envelopeToBundle(dsseEnvelope dsse.Envelope) (*pr
 	case *chainloopsigner.Signer:
 		chain := v.Chain
 		certs := make([]*v12.X509Certificate, 0)
-		for _, c := range chain {
+		// Store cert chain except root certificate, as it's required to be provided separately
+		for _, c := range chain[0 : len(chain)-1] {
 			block, _ := pem.Decode([]byte(c))
 			if block == nil {
 				return nil, fmt.Errorf("failed to decode PEM block")
