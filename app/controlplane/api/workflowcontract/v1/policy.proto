@@ -56,8 +56,8 @@ message PolicySpec {
   // Only "push" is supported currently and this field will be ignored
   PolicyStage stage = 3;
 
-  // if set, it will match a material kind supported by Chainloop.
-  CraftingSchema.Material.MaterialType kind = 4;
+  // if set, it will match a material type supported by Chainloop.
+  CraftingSchema.Material.MaterialType type = 4;
 
   // buf:lint:ignore ENUM_VALUE_PREFIX ENUM_ZERO_VALUE_SUFFIX
   // buf:lint:ignore ENUM_ZERO_VALUE_SUFFIX
