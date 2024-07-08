@@ -15,8 +15,10 @@
 
 package policies
 
+import "context"
+
 type PolicyChecker interface {
-	Verify(policy, input []byte) []PolicyViolation
+	Verify(ctx context.Context, policy *Policy, input []byte) ([]PolicyViolation, error)
 }
 
 type PolicyViolation struct {

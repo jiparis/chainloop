@@ -26,8 +26,12 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 )
 
+// Rego policy checker for chainloop attestations and materials
 type Rego struct {
 }
+
+// Force interface
+var _ policies.PolicyChecker = (*Rego)(nil)
 
 func (r *Rego) Verify(ctx context.Context, policy *policies.Policy, input []byte) ([]policies.PolicyViolation, error) {
 	policyString := string(policy.Module)
