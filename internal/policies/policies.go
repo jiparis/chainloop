@@ -16,9 +16,15 @@
 package policies
 
 type PolicyChecker interface {
-	CheckPolicy(policy string, input string) []PolicyViolation
+	Verify(policy, input []byte) []PolicyViolation
 }
 
 type PolicyViolation struct {
 	Subject, Violation string
+}
+
+// Policy represents a policy in any of the supported technologies.
+type Policy struct {
+	Module []byte `json:"module"`
+	Name   string `json:"name"`
 }

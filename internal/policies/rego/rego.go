@@ -16,43 +16,68 @@
 package rego
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/chainloop-dev/chainloop/internal/policies"
+	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 )
 
 type Rego struct {
 }
 
-func (r Rego) CheckPolicy(policy string, input any) ([]policies.PolicyViolation, error) {
-	module := `
-package example.authz
-
-import rego.v1
-
-default allow := false
-
-allow if {
-    input.method == "GET"
-    input.path == ["salary", input.subject.user]
-}
-
-allow if is_admin
-
-is_admin if "admin" in input.subject.groups
-`
-
-	ctx := context.TODO()
-
-	query, err := rego.New(
-		rego.Query("x = data.example.authz.allow"),
-		rego.Module("example.rego", module),
-	).PrepareForEval(ctx)
-
+func (r *Rego) Verify(ctx context.Context, policy *policies.Policy, input []byte) ([]policies.PolicyViolation, error) {
+	policyString := string(policy.Module)
+	parsedModule, err := ast.ParseModule(policy.Name, policyString)
 	if err != nil {
-		// Handle error.
+		return nil, fmt.Errorf("failed to parse rego policy: %w", err)
 	}
 
-	results, err := query.Eval(ctx, rego.EvalInput(input))
+	// Decode input as json
+	decoder := json.NewDecoder(bytes.NewReader(input))
+	decoder.UseNumber()
+	var decodedInput interface{}
+	if err := decoder.Decode(&decodedInput); err != nil {
+		return nil, fmt.Errorf("failed to parse input: %w", err)
+	}
+
+	// add input
+	regoInput := rego.Input(decodedInput)
+	// add module
+	regoFunc := rego.ParsedModule(parsedModule)
+	// add query
+	query := rego.Query(fmt.Sprintf("%v.deny\n", parsedModule.Package.Path))
+	regoEval := rego.New(regoInput, regoFunc, query)
+
+	res, err := regoEval.Eval(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate policy: %w", err)
+	}
+
+	violations := make([]policies.PolicyViolation, 0)
+	for _, exp := range res {
+		for _, val := range exp.Expressions {
+			denyReasons, ok := val.Value.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("failed to evaluate policy expression evaluation result: %s", val.Text)
+			}
+
+			for _, reason := range denyReasons {
+				reasonStr, ok := reason.(string)
+				if !ok {
+					return nil, fmt.Errorf("failed to evaluate deny reason: %s", val.Text)
+				}
+
+				violations = append(violations, policies.PolicyViolation{
+					Subject:   policy.Name,
+					Violation: reasonStr,
+				})
+			}
+		}
+	}
+
+	return violations, nil
 }
