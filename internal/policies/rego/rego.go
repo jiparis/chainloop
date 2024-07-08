@@ -14,3 +14,45 @@
 // limitations under the License.
 
 package rego
+
+import (
+	"context"
+
+	"github.com/chainloop-dev/chainloop/internal/policies"
+	"github.com/open-policy-agent/opa/rego"
+)
+
+type Rego struct {
+}
+
+func (r Rego) CheckPolicy(policy string, input any) ([]policies.PolicyViolation, error) {
+	module := `
+package example.authz
+
+import rego.v1
+
+default allow := false
+
+allow if {
+    input.method == "GET"
+    input.path == ["salary", input.subject.user]
+}
+
+allow if is_admin
+
+is_admin if "admin" in input.subject.groups
+`
+
+	ctx := context.TODO()
+
+	query, err := rego.New(
+		rego.Query("x = data.example.authz.allow"),
+		rego.Module("example.rego", module),
+	).PrepareForEval(ctx)
+
+	if err != nil {
+		// Handle error.
+	}
+
+	results, err := query.Eval(ctx, rego.EvalInput(input))
+}

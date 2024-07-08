@@ -15,5 +15,10 @@
 
 package policies
 
-type Checker interface {
+type PolicyChecker interface {
+	CheckPolicy(policy string, input string) []PolicyViolation
+}
+
+type PolicyViolation struct {
+	Subject, Violation string
 }
