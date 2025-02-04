@@ -294,17 +294,17 @@ func (_m *WorkflowRunRepo) SaveAttestation(ctx context.Context, ID uuid.UUID, at
 	return r0
 }
 
-// SaveBundle provides a mock function with given fields: ctx, ID, bundle, digest
-func (_m *WorkflowRunRepo) SaveBundle(ctx context.Context, ID uuid.UUID, bundle []byte, digest string) error {
-	ret := _m.Called(ctx, ID, bundle, digest)
+// SaveBundle provides a mock function with given fields: ctx, ID, bundle
+func (_m *WorkflowRunRepo) SaveBundle(ctx context.Context, ID uuid.UUID, bundle []byte) error {
+	ret := _m.Called(ctx, ID, bundle)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SaveBundle")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, []byte, string) error); ok {
-		r0 = rf(ctx, ID, bundle, digest)
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, []byte) error); ok {
+		r0 = rf(ctx, ID, bundle)
 	} else {
 		r0 = ret.Error(0)
 	}
