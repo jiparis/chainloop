@@ -44,24 +44,6 @@ service AttestationService {
 service WorkflowRunService {
   rpc List(WorkflowRunServiceListRequest) returns (WorkflowRunServiceListResponse);
   rpc View(WorkflowRunServiceViewRequest) returns (WorkflowRunServiceViewResponse);
-  rpc GetBunldle(WorkflowRunServiceGetBundleRequest) returns (WorkflowRunServiceGetBundleResponse);
-}
-
-message WorkflowRunServiceGetBundleRequest {
-  oneof ref {
-    option (buf.validate.oneof).required = true;
-
-    // workflow run ID
-    string id = 1 [(buf.validate.field).string.uuid = true];
-
-    // bundle digest (not used at this moment)
-    string digest = 2 [(buf.validate.field).string = {min_len: 1}];
-  }
-}
-
-message WorkflowRunServiceGetBundleResponse {
-  // raw attestation bundle
-  bytes bundle = 1;
 }
 
 message FindOrCreateWorkflowRequest {

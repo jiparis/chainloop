@@ -23,20 +23,6 @@ import {
 
 export const protobufPackage = "controlplane.v1";
 
-export interface WorkflowRunServiceGetBundleRequest {
-  /** workflow run ID */
-  id?:
-    | string
-    | undefined;
-  /** bundle digest (not used at this moment) */
-  digest?: string | undefined;
-}
-
-export interface WorkflowRunServiceGetBundleResponse {
-  /** raw attestation bundle */
-  bundle: Uint8Array;
-}
-
 export interface FindOrCreateWorkflowRequest {
   workflowName: string;
   projectName: string;
@@ -245,142 +231,6 @@ export interface AttestationServiceGetUploadCredsResponse_Result {
   token: string;
   backend?: CASBackendItem;
 }
-
-function createBaseWorkflowRunServiceGetBundleRequest(): WorkflowRunServiceGetBundleRequest {
-  return { id: undefined, digest: undefined };
-}
-
-export const WorkflowRunServiceGetBundleRequest = {
-  encode(message: WorkflowRunServiceGetBundleRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
-    if (message.id !== undefined) {
-      writer.uint32(10).string(message.id);
-    }
-    if (message.digest !== undefined) {
-      writer.uint32(18).string(message.digest);
-    }
-    return writer;
-  },
-
-  decode(input: _m0.Reader | Uint8Array, length?: number): WorkflowRunServiceGetBundleRequest {
-    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseWorkflowRunServiceGetBundleRequest();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          if (tag !== 10) {
-            break;
-          }
-
-          message.id = reader.string();
-          continue;
-        case 2:
-          if (tag !== 18) {
-            break;
-          }
-
-          message.digest = reader.string();
-          continue;
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skipType(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): WorkflowRunServiceGetBundleRequest {
-    return {
-      id: isSet(object.id) ? String(object.id) : undefined,
-      digest: isSet(object.digest) ? String(object.digest) : undefined,
-    };
-  },
-
-  toJSON(message: WorkflowRunServiceGetBundleRequest): unknown {
-    const obj: any = {};
-    message.id !== undefined && (obj.id = message.id);
-    message.digest !== undefined && (obj.digest = message.digest);
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<WorkflowRunServiceGetBundleRequest>, I>>(
-    base?: I,
-  ): WorkflowRunServiceGetBundleRequest {
-    return WorkflowRunServiceGetBundleRequest.fromPartial(base ?? {});
-  },
-
-  fromPartial<I extends Exact<DeepPartial<WorkflowRunServiceGetBundleRequest>, I>>(
-    object: I,
-  ): WorkflowRunServiceGetBundleRequest {
-    const message = createBaseWorkflowRunServiceGetBundleRequest();
-    message.id = object.id ?? undefined;
-    message.digest = object.digest ?? undefined;
-    return message;
-  },
-};
-
-function createBaseWorkflowRunServiceGetBundleResponse(): WorkflowRunServiceGetBundleResponse {
-  return { bundle: new Uint8Array(0) };
-}
-
-export const WorkflowRunServiceGetBundleResponse = {
-  encode(message: WorkflowRunServiceGetBundleResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
-    if (message.bundle.length !== 0) {
-      writer.uint32(10).bytes(message.bundle);
-    }
-    return writer;
-  },
-
-  decode(input: _m0.Reader | Uint8Array, length?: number): WorkflowRunServiceGetBundleResponse {
-    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseWorkflowRunServiceGetBundleResponse();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1:
-          if (tag !== 10) {
-            break;
-          }
-
-          message.bundle = reader.bytes();
-          continue;
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skipType(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): WorkflowRunServiceGetBundleResponse {
-    return { bundle: isSet(object.bundle) ? bytesFromBase64(object.bundle) : new Uint8Array(0) };
-  },
-
-  toJSON(message: WorkflowRunServiceGetBundleResponse): unknown {
-    const obj: any = {};
-    message.bundle !== undefined &&
-      (obj.bundle = base64FromBytes(message.bundle !== undefined ? message.bundle : new Uint8Array(0)));
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<WorkflowRunServiceGetBundleResponse>, I>>(
-    base?: I,
-  ): WorkflowRunServiceGetBundleResponse {
-    return WorkflowRunServiceGetBundleResponse.fromPartial(base ?? {});
-  },
-
-  fromPartial<I extends Exact<DeepPartial<WorkflowRunServiceGetBundleResponse>, I>>(
-    object: I,
-  ): WorkflowRunServiceGetBundleResponse {
-    const message = createBaseWorkflowRunServiceGetBundleResponse();
-    message.bundle = object.bundle ?? new Uint8Array(0);
-    return message;
-  },
-};
 
 function createBaseFindOrCreateWorkflowRequest(): FindOrCreateWorkflowRequest {
   return { workflowName: "", projectName: "", contractName: "" };
@@ -2754,10 +2604,6 @@ export interface WorkflowRunService {
     request: DeepPartial<WorkflowRunServiceViewRequest>,
     metadata?: grpc.Metadata,
   ): Promise<WorkflowRunServiceViewResponse>;
-  GetBunldle(
-    request: DeepPartial<WorkflowRunServiceGetBundleRequest>,
-    metadata?: grpc.Metadata,
-  ): Promise<WorkflowRunServiceGetBundleResponse>;
 }
 
 export class WorkflowRunServiceClientImpl implements WorkflowRunService {
@@ -2767,7 +2613,6 @@ export class WorkflowRunServiceClientImpl implements WorkflowRunService {
     this.rpc = rpc;
     this.List = this.List.bind(this);
     this.View = this.View.bind(this);
-    this.GetBunldle = this.GetBunldle.bind(this);
   }
 
   List(
@@ -2782,17 +2627,6 @@ export class WorkflowRunServiceClientImpl implements WorkflowRunService {
     metadata?: grpc.Metadata,
   ): Promise<WorkflowRunServiceViewResponse> {
     return this.rpc.unary(WorkflowRunServiceViewDesc, WorkflowRunServiceViewRequest.fromPartial(request), metadata);
-  }
-
-  GetBunldle(
-    request: DeepPartial<WorkflowRunServiceGetBundleRequest>,
-    metadata?: grpc.Metadata,
-  ): Promise<WorkflowRunServiceGetBundleResponse> {
-    return this.rpc.unary(
-      WorkflowRunServiceGetBunldleDesc,
-      WorkflowRunServiceGetBundleRequest.fromPartial(request),
-      metadata,
-    );
   }
 }
 
@@ -2834,29 +2668,6 @@ export const WorkflowRunServiceViewDesc: UnaryMethodDefinitionish = {
   responseType: {
     deserializeBinary(data: Uint8Array) {
       const value = WorkflowRunServiceViewResponse.decode(data);
-      return {
-        ...value,
-        toObject() {
-          return value;
-        },
-      };
-    },
-  } as any,
-};
-
-export const WorkflowRunServiceGetBunldleDesc: UnaryMethodDefinitionish = {
-  methodName: "GetBunldle",
-  service: WorkflowRunServiceDesc,
-  requestStream: false,
-  responseStream: false,
-  requestType: {
-    serializeBinary() {
-      return WorkflowRunServiceGetBundleRequest.encode(this).finish();
-    },
-  } as any,
-  responseType: {
-    deserializeBinary(data: Uint8Array) {
-      const value = WorkflowRunServiceGetBundleResponse.decode(data);
       return {
         ...value,
         toObject() {
