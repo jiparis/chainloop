@@ -24,6 +24,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/chainloop-dev/chainloop/app/controlplane/pkg/biz"
 	"github.com/chainloop-dev/chainloop/app/controlplane/pkg/data/ent"
+	"github.com/chainloop-dev/chainloop/app/controlplane/pkg/data/ent/attestation"
 	"github.com/chainloop-dev/chainloop/app/controlplane/pkg/data/ent/organization"
 	"github.com/chainloop-dev/chainloop/app/controlplane/pkg/data/ent/projectversion"
 	"github.com/chainloop-dev/chainloop/app/controlplane/pkg/data/ent/workflow"
@@ -202,6 +203,17 @@ func (r *WorkflowRunRepo) SaveBundle(ctx context.Context, wrID uuid.UUID, bundle
 	}
 
 	return nil
+}
+
+func (r *WorkflowRunRepo) GetBundle(ctx context.Context, wrID uuid.UUID) ([]byte, error) {
+	att, err := r.data.DB.Attestation.Query().Where(attestation.WorkflowrunID(wrID)).First(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, biz.NewErrNotFound(fmt.Sprintf("attestation for workflow run with id %s not found", wrID))
+		}
+		return nil, err
+	}
+	return att.Bundle, nil
 }
 
 func (r *WorkflowRunRepo) MarkAsFinished(ctx context.Context, id uuid.UUID, status biz.WorkflowRunStatus, reason string) error {
