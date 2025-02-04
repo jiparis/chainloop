@@ -330,6 +330,7 @@ func entWrToBizWr(ctx context.Context, wr *ent.WorkflowRun) (*biz.WorkflowRun, e
 		CASBackends:            make([]*biz.CASBackend, 0),
 		ContractRevisionUsed:   wr.ContractRevisionUsed,
 		ContractRevisionLatest: wr.ContractRevisionLatest,
+		Digest:                 wr.AttestationDigest,
 	}
 
 	if wr.Attestation != nil {

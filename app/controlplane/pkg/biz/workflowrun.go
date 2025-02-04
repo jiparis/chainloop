@@ -43,6 +43,7 @@ type WorkflowRun struct {
 	RunURL, RunnerType    string
 	ContractVersionID     uuid.UUID
 	Attestation           *Attestation
+	Digest                string
 	Bundle                *protobundle.Bundle
 	CASBackends           []*CASBackend
 	// The revision of the contract that was used
@@ -54,7 +55,8 @@ type WorkflowRun struct {
 
 type Attestation struct {
 	Envelope *dsse.Envelope
-	Digest   string
+	// Bundle digest, or envelope digest for old attestations
+	Digest string
 }
 
 type WorkflowRunWithContract struct {
@@ -411,6 +413,7 @@ func (uc *WorkflowRunUseCase) GetByDigestInOrgOrPublic(ctx context.Context, orgI
 }
 
 func (uc *WorkflowRunUseCase) addAttestationFromBundle(ctx context.Context, wfRun *WorkflowRun) error {
+	// already there, do nothing
 	if wfRun.Attestation != nil {
 		return nil
 	}
@@ -426,7 +429,8 @@ func (uc *WorkflowRunUseCase) addAttestationFromBundle(ctx context.Context, wfRu
 	wfRun.Bundle = &bundle
 	wfRun.Attestation = &Attestation{
 		Envelope: attestation.DSSEEnvelopeFromBundle(&bundle),
-		Digest:   "",
+		// the bundle digest
+		Digest: wfRun.Digest,
 	}
 	return nil
 }

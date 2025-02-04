@@ -253,11 +253,17 @@ func (s *AttestationService) storeAttestation(ctx context.Context, envelope *dss
 				func() error {
 					// reset context
 					ctx := context.Background()
-					digest, err := s.attestationUseCase.UploadToCAS(ctx, envelope, casBackend, workflowRunID)
+					var digest string
+					var err error
+					if bundle.GetDsseEnvelope() != nil {
+						digest, err = s.attestationUseCase.UploadBundleToCAS(ctx, bundle, casBackend, workflowRunID)
+					} else {
+						digest, err = s.attestationUseCase.UploadEnvelopeToCAS(ctx, envelope, casBackend, workflowRunID)
+					}
 					if err != nil {
 						return err
 					}
-					s.log.Infow("msg", "attestation uploaded to CAS", "digest", digest.String(), "runID", workflowRunID)
+					s.log.Infow("msg", "attestation uploaded to CAS", "digest", digest, "runID", workflowRunID)
 					return nil
 				}, b)
 
