@@ -389,8 +389,9 @@ var AttestationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	WorkflowRunService_List_FullMethodName = "/controlplane.v1.WorkflowRunService/List"
-	WorkflowRunService_View_FullMethodName = "/controlplane.v1.WorkflowRunService/View"
+	WorkflowRunService_List_FullMethodName       = "/controlplane.v1.WorkflowRunService/List"
+	WorkflowRunService_View_FullMethodName       = "/controlplane.v1.WorkflowRunService/View"
+	WorkflowRunService_GetBunldle_FullMethodName = "/controlplane.v1.WorkflowRunService/GetBunldle"
 )
 
 // WorkflowRunServiceClient is the client API for WorkflowRunService service.
@@ -399,6 +400,7 @@ const (
 type WorkflowRunServiceClient interface {
 	List(ctx context.Context, in *WorkflowRunServiceListRequest, opts ...grpc.CallOption) (*WorkflowRunServiceListResponse, error)
 	View(ctx context.Context, in *WorkflowRunServiceViewRequest, opts ...grpc.CallOption) (*WorkflowRunServiceViewResponse, error)
+	GetBunldle(ctx context.Context, in *WorkflowRunServiceGetBundleRequest, opts ...grpc.CallOption) (*WorkflowRunServiceGetBundleResponse, error)
 }
 
 type workflowRunServiceClient struct {
@@ -427,12 +429,22 @@ func (c *workflowRunServiceClient) View(ctx context.Context, in *WorkflowRunServ
 	return out, nil
 }
 
+func (c *workflowRunServiceClient) GetBunldle(ctx context.Context, in *WorkflowRunServiceGetBundleRequest, opts ...grpc.CallOption) (*WorkflowRunServiceGetBundleResponse, error) {
+	out := new(WorkflowRunServiceGetBundleResponse)
+	err := c.cc.Invoke(ctx, WorkflowRunService_GetBunldle_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkflowRunServiceServer is the server API for WorkflowRunService service.
 // All implementations must embed UnimplementedWorkflowRunServiceServer
 // for forward compatibility
 type WorkflowRunServiceServer interface {
 	List(context.Context, *WorkflowRunServiceListRequest) (*WorkflowRunServiceListResponse, error)
 	View(context.Context, *WorkflowRunServiceViewRequest) (*WorkflowRunServiceViewResponse, error)
+	GetBunldle(context.Context, *WorkflowRunServiceGetBundleRequest) (*WorkflowRunServiceGetBundleResponse, error)
 	mustEmbedUnimplementedWorkflowRunServiceServer()
 }
 
@@ -445,6 +457,9 @@ func (UnimplementedWorkflowRunServiceServer) List(context.Context, *WorkflowRunS
 }
 func (UnimplementedWorkflowRunServiceServer) View(context.Context, *WorkflowRunServiceViewRequest) (*WorkflowRunServiceViewResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method View not implemented")
+}
+func (UnimplementedWorkflowRunServiceServer) GetBunldle(context.Context, *WorkflowRunServiceGetBundleRequest) (*WorkflowRunServiceGetBundleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBunldle not implemented")
 }
 func (UnimplementedWorkflowRunServiceServer) mustEmbedUnimplementedWorkflowRunServiceServer() {}
 
@@ -495,6 +510,24 @@ func _WorkflowRunService_View_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkflowRunService_GetBunldle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorkflowRunServiceGetBundleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkflowRunServiceServer).GetBunldle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkflowRunService_GetBunldle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkflowRunServiceServer).GetBunldle(ctx, req.(*WorkflowRunServiceGetBundleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkflowRunService_ServiceDesc is the grpc.ServiceDesc for WorkflowRunService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -509,6 +542,10 @@ var WorkflowRunService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "View",
 			Handler:    _WorkflowRunService_View_Handler,
+		},
+		{
+			MethodName: "GetBunldle",
+			Handler:    _WorkflowRunService_GetBunldle_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

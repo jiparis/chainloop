@@ -1,0 +1,19 @@
+{
+  "$id": "controlplane.v1.WorkflowRunServiceGetBundleRequest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "digest": {
+      "description": "bundle digest (not used at this moment)",
+      "minLength": 1,
+      "type": "string"
+    },
+    "id": {
+      "description": "workflow run ID",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "type": "string"
+    }
+  },
+  "title": "Workflow Run Service Get Bundle Request",
+  "type": "object"
+}

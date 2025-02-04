@@ -1,0 +1,14 @@
+{
+  "$id": "controlplane.v1.WorkflowRunServiceGetBundleResponse.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bundle": {
+      "description": "raw attestation bundle",
+      "pattern": "^[A-Za-z0-9+/]*={0,2}$",
+      "type": "string"
+    }
+  },
+  "title": "Workflow Run Service Get Bundle Response",
+  "type": "object"
+}
