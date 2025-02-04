@@ -285,18 +285,19 @@ func (uc *WorkflowRunUseCase) SaveAttestation(ctx context.Context, id string, en
 	}
 
 	// Calculate the digest
-	_, digest, err := attestation.JSONEnvelopeWithDigest(envelope)
+	var digest v1.Hash
+
+	// envelope digest
+	_, digest, err = attestation.JSONEnvelopeWithDigest(envelope)
 	if err != nil {
 		return "", NewErrValidation(fmt.Errorf("marshaling the envelope: %w", err))
 	}
 
-	if err := uc.wfRunRepo.SaveAttestation(ctx, runID, envelope, digest.String()); err != nil {
-		return "", fmt.Errorf("saving attestation: %w", err)
-	}
-
-	// Save bundle if provided. It might come as an empty struct
+	// Save bundle if provided, as it might come as an empty struct
 	if bundle != nil && bundle.GetDsseEnvelope() != nil {
-		bundleBytes, _, err := attestation.JSONBundleWithDigest(bundle)
+		var bundleBytes []byte
+		// calculate digest from bundle instead
+		bundleBytes, digest, err = attestation.JSONBundleWithDigest(bundle)
 		if err != nil {
 			return "", NewErrValidation(fmt.Errorf("marshaling the envelope: %w", err))
 		}
@@ -305,6 +306,10 @@ func (uc *WorkflowRunUseCase) SaveAttestation(ctx context.Context, id string, en
 		if err = uc.wfRunRepo.SaveBundle(ctx, runID, bundleBytes); err != nil {
 			return "", fmt.Errorf("saving bundle: %w", err)
 		}
+	}
+
+	if err := uc.wfRunRepo.SaveAttestation(ctx, runID, envelope, digest.String()); err != nil {
+		return "", fmt.Errorf("saving attestation: %w", err)
 	}
 
 	return digest.String(), nil
@@ -347,7 +352,7 @@ func (uc *WorkflowRunUseCase) GetByIDInOrgOrPublic(ctx context.Context, orgID, r
 		return nil, fmt.Errorf("finding workflow run: %w", err)
 	}
 
-	// if needed, add attestation from attestation bundles
+	// if available, add attestation from attestation bundles
 	if err = uc.addAttestationFromBundle(ctx, wfrun); err != nil {
 		return nil, fmt.Errorf("retrieving attestation from bundle: %w", err)
 	}
@@ -368,7 +373,17 @@ func (uc *WorkflowRunUseCase) GetByIDInOrg(ctx context.Context, orgID, runID str
 		return nil, NewErrInvalidUUID(err)
 	}
 
-	return uc.wfRunRepo.FindByIDInOrg(ctx, orgUUID, runUUID)
+	wfRun, err := uc.wfRunRepo.FindByIDInOrg(ctx, orgUUID, runUUID)
+	if err != nil {
+		return nil, fmt.Errorf("finding workflow run: %w", err)
+	}
+
+	// if available, add attestation from attestation bundles
+	if err = uc.addAttestationFromBundle(ctx, wfRun); err != nil {
+		return nil, fmt.Errorf("retrieving attestation from bundle: %w", err)
+	}
+
+	return wfRun, nil
 }
 
 func (uc *WorkflowRunUseCase) GetByDigestInOrgOrPublic(ctx context.Context, orgID, digest string) (*WorkflowRun, error) {
@@ -386,7 +401,7 @@ func (uc *WorkflowRunUseCase) GetByDigestInOrgOrPublic(ctx context.Context, orgI
 		return nil, fmt.Errorf("finding workflow run: %w", err)
 	}
 
-	// if needed, add attestation from attestation bundles
+	// if available, add attestation from attestation bundles
 	if err = uc.addAttestationFromBundle(ctx, wfrun); err != nil {
 		return nil, fmt.Errorf("retrieving attestation from bundle: %w", err)
 	}
