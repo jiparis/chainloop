@@ -28,6 +28,8 @@ import (
 	"github.com/sigstore/cosign/v2/pkg/blob"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
 	sigs "github.com/sigstore/cosign/v2/pkg/signature"
+	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	bundle2 "github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 
@@ -167,6 +169,13 @@ func (action *WorkflowRunDescribe) Run(ctx context.Context, opts *WorkflowRunDes
 		return nil, err
 	}
 
+	if attestation.Bundle != nil {
+		// verify attestation bundle using sigstore-go
+		if err = action.Verify(ctx, attestation.Bundle); err != nil {
+			return nil, fmt.Errorf("verification failed: %v", err)
+		}
+	}
+
 	if opts.Verify {
 		if err := verifyEnvelope(ctx, envelope, opts); err != nil {
 			action.cfg.Logger.Debug().Err(err).Msg("verifying the envelope")
@@ -232,6 +241,19 @@ func (action *WorkflowRunDescribe) Run(ctx context.Context, opts *WorkflowRunDes
 	}
 
 	return item, nil
+}
+
+func (action *WorkflowRunDescribe) Verify(ctx context.Context, bundleBytes []byte) error {
+	// load the bundle
+	var bundle bundle2.Bundle
+	bundle.Bundle = new(protobundle.Bundle)
+	if err := bundle.UnmarshalJSON(bundleBytes); err != nil {
+		return err
+	}
+
+	// create trusted root
+	//trustedMaterial := root.GetTrustedRoot()
+	return nil
 }
 
 func policyEvaluationPBToAction(in *pb.PolicyEvaluation) *PolicyEvaluation {
