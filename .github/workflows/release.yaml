@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref_type == 'tag' # Guard to make sure we are releasing once
+    outputs:
+      attestation_id: ${{ steps.init_attestation.outputs.attestation_id }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Install Chainloop
@@ -45,6 +47,7 @@ jobs:
     env:
       CHAINLOOP_TOKEN: ${{ secrets.CHAINLOOP_TOKEN }}
       ATTESTATION_ID: ${{ needs.init_attestation.outputs.attestation_id }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
       attestation_hash: ${{ steps.attest_goreleaser.outputs.attestation_hash }}
 
@@ -99,8 +102,6 @@ jobs:
 
       - name: Generate SBOMs, upload to release and attest
         id: attest_goreleaser
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # goreleaser output resides in dist/artifacts.json
           # Attest all built containers and manifests
@@ -108,16 +109,12 @@ jobs:
           for entry in $images; do
             # exclude latest tag
             if [[ $entry != *latest ]]; then
-              # Extract only the image name and the architecture on the tag
-              repo="${entry%:*}"                    # Remove tag
-              repo="${repo##*/}"                    # Extract last segment after the last '/'
-              material_name="${repo}-${entry##*-}"  # Construct final name
-              syft -o cyclonedx-json=/tmp/sbom-$material_name.cyclonedx.json $entry
-              chainloop attestation add --name $material_name --value $entry --kind CONTAINER_IMAGE --attestation-id ${{ env.ATTESTATION_ID }}
-              chainloop attestation add --name sbom-$material_name --value /tmp/sbom-$material_name.cyclonedx.json --attestation-id ${{ env.ATTESTATION_ID }}
+              syft -o cyclonedx-json=/tmp/sbom.cyclonedx.json $entry
+              chainloop attestation add --value $entry --kind CONTAINER_IMAGE --attestation-id ${{ env.ATTESTATION_ID }}
+              chainloop attestation add --value /tmp/sbom.cyclonedx.json --attestation-id ${{ env.ATTESTATION_ID }}
           
               # Upload the SBOM to the release
-              gh release upload ${{ github.ref_name }} /tmp/sbom-$material_name.cyclonedx.json --clobber
+              # gh release upload ${{ github.ref_name }} /tmp/sbom-$material_name.cyclonedx.json --clobber
             fi
           done
 
