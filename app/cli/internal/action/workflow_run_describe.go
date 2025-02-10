@@ -25,11 +25,13 @@ import (
 
 	pb "github.com/chainloop-dev/chainloop/app/controlplane/api/controlplane/v1"
 	"github.com/chainloop-dev/chainloop/pkg/attestation/renderer/chainloop"
+	chainlooproot "github.com/chainloop-dev/chainloop/pkg/attestation/signer/root"
 	"github.com/sigstore/cosign/v2/pkg/blob"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
 	sigs "github.com/sigstore/cosign/v2/pkg/signature"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	bundle2 "github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/verify"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 
@@ -171,8 +173,8 @@ func (action *WorkflowRunDescribe) Run(ctx context.Context, opts *WorkflowRunDes
 
 	if attestation.Bundle != nil {
 		// verify attestation bundle using sigstore-go
-		if err = action.Verify(ctx, attestation.Bundle); err != nil {
-			return nil, fmt.Errorf("verification failed: %v", err)
+		if err = action.SigstoreVerify(ctx, attestation.Bundle, attestation.DigestInCasBackend); err != nil {
+			return nil, fmt.Errorf("verification failed: %w", err)
 		}
 	}
 
@@ -243,7 +245,7 @@ func (action *WorkflowRunDescribe) Run(ctx context.Context, opts *WorkflowRunDes
 	return item, nil
 }
 
-func (action *WorkflowRunDescribe) Verify(ctx context.Context, bundleBytes []byte) error {
+func (action *WorkflowRunDescribe) SigstoreVerify(_ context.Context, bundleBytes []byte, digest string) error {
 	// load the bundle
 	var bundle bundle2.Bundle
 	bundle.Bundle = new(protobundle.Bundle)
@@ -252,7 +254,27 @@ func (action *WorkflowRunDescribe) Verify(ctx context.Context, bundleBytes []byt
 	}
 
 	// create trusted root
-	//trustedMaterial := root.GetTrustedRoot()
+	cert, err := loadCertificates("devel/devkeys/ca.pub")
+	if err != nil {
+		return err
+	}
+	trustedMaterial := chainlooproot.NewChainloopPublicKeyMaterial(cert[0])
+	var verifierConfig []verify.VerifierOption
+	verifierConfig = append(verifierConfig, verify.WithoutAnyObserverTimestampsUnsafe())
+	sev, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierConfig...)
+	if err != nil {
+		return err
+	}
+
+	var identityPolicies []verify.PolicyOption
+	identityPolicies = append(identityPolicies, verify.WithoutIdentitiesUnsafe())
+	artifactPolicy := verify.WithoutArtifactUnsafe()
+
+	_, err = sev.Verify(&bundle, verify.NewPolicy(artifactPolicy, identityPolicies...))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

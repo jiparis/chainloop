@@ -102,10 +102,17 @@ func (p *chainloopPrincipal) Name(_ context.Context) string {
 }
 
 func (p *chainloopPrincipal) Embed(_ context.Context, cert *x509.Certificate) error {
-	// no op.
-	// TODO: Chainloop might have their own private enterprise number with the Internet Assigned Numbers Authority
-	// 		 to embed its own identity information in the resulting certificate
+	var exts []pkix.Extension
+
 	cert.Subject = pkix.Name{Organization: []string{p.orgID}}
+
+	ext, err := cryptoutils.MarshalOtherNameSAN(p.orgID, true)
+	if err != nil {
+		return fmt.Errorf("marshaling extension: %w", err)
+	}
+	exts = append(exts, *ext)
+
+	cert.ExtraExtensions = exts
 
 	return nil
 }
