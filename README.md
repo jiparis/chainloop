@@ -147,7 +147,7 @@ $ chainloop auth login
 Once you've been logged in, follow [these instructions](https://docs.chainloop.dev/get-started/setup) to learn how to set up your account.
 ## Documentation
 
-To learn more, please visit the Chainloop project's documentation website, https://docs.chainloop.dev where you will find a getting started guide, FAQ, examples, and more.
+To learn more, please visit the Chainloop project's documentation website, https://docs.chainloop.dev where you will find a [getting started guide](https://docs.chainloop.dev/quickstart), FAQ, examples, and more.
 
 ## Community / Discussion / Support
 
